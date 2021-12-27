@@ -1,5 +1,5 @@
 ## Pratical work on IA
 
-Search algorithm
-Knowledge representation
-IA for video games
+Search algorithm <br>
+Knowledge representation <br>
+IA for video games <br>
