@@ -239,7 +239,7 @@ class Vehicule:
         force = vecDiff(futurePosition, self._coords)
         force = vecScalarMult(force, self._maxAccForce / approximateLength(force))
 
-        # Calcul de la force de frainage colinéaire et inverse à la vitesse et proportionnel à l'angle du 
+        # Calcul de la force de freinage colinéaire et inverse à la vitesse et proportionnelle à l'angle du 
         # prochain virage
         slowForce = vecScalarMult(self._speed, -1.2 * angle)
         slowForce = (slowForce[0] / (abs(angle) + 1), slowForce[1] / (abs(angle) + 1))
