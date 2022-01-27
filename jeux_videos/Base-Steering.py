@@ -135,6 +135,15 @@ def approximateDistance(v1, v2):
 
 
 def isAhead(speed, pos1, pos2, vision):
+    """
+        Détermine si pos2 est dans un rectangle devant pos1.
+        
+        Params:
+        - speed (vecteur) qui donne la direction du rectangle par rapport à pos1
+        - pos1 (position)
+        - pos2 (position)
+        - vision (entier naturel) donne la longueur du rectangle 
+    """
     l1 = speed[1] / speed[0] * (pos2[0] - pos1[0] + speed[1]) + pos1[1] + speed[0]
     l2 = speed[1] / speed[0] * (pos2[0] - pos1[0] - speed[1]) + pos1[1] - speed[0]
 
@@ -193,13 +202,13 @@ class Vehicule:
     def steerUpdate(self, track, vehicules):
         self._force = (0, 0)
         self._force = vecAdd(self._force, self.steerPathFollow(track))
-        # steerSeparation(self, vehicules)
 
     def steerPathFollow(self, track):
         (s, p, _) = track._closestSegmentPointToPoint(self._coords)
 
         self._proj = p
-        # This is the future position
+        
+        # Récupération de 2 positions futures sur la piste à plus ou moins long terme
         (_, futurePosition) = track._segmentPointAddLength(
             s, p, max(10, approximateLength(self._speed)) * self._seeInFuture
         )
@@ -208,6 +217,9 @@ class Vehicule:
         )
         self._objective = farFuturePosition
 
+        # Calcul des angles entre ces position et la position future si le vehicule allé tout droit 
+        # Ces angles permettent de savoir à l'avance s'il y aura un virage
+        # On calcule deux angles à long et moyen terme pour détecter les chicanes 
         objective = vecDiff(futurePosition, self._coords)
         farTurn = math.acos(
             vecDot(objective, self._speed)
@@ -218,31 +230,23 @@ class Vehicule:
             vecDot(objective, self._speed)
             / (approximateLength(self._speed) * approximateLength(objective))
         )
+        
+        # On récupère l'angle le plus aigu car il nécessitera de plus ralentir
+        # Le virage a moyen terme doit impliqué un freinage plus important d'ou le coefficient 1.2
         angle = max(farTurn, 1.2 * closeTurn)
-        # print(
-        #     self._speed,
-        #     objective,
-        #     self._coords,
-        #     futurePosition,
-        #     angle * 180 / math.pi,
-        #     abs(angle) + 1,
-        # )
 
-        # We just have to register a force to get to futurePosition !
-        # force = vecAdd(force, vecDiff(futurePosition, self._coords))
+        # Calcul de la force pour atteindre la position future sur la piste
         force = vecDiff(futurePosition, self._coords)
         force = vecScalarMult(force, self._maxAccForce / approximateLength(force))
 
+        # Calcul de la force de frainage colinéaire et inverse à la vitesse et proportionnel à l'angle du 
+        # prochain virage
         slowForce = vecScalarMult(self._speed, -1.2 * angle)
         slowForce = (slowForce[0] / (abs(angle) + 1), slowForce[1] / (abs(angle) + 1))
 
-        force = vecAdd(force, slowForce)  # slow if far from the middle of the track
+        # Ajout de la force de freinage à la force initial
+        force = vecAdd(force, slowForce)
         return force
-
-    def steerSeparation(self, vehicules):
-        forceAccu = (0, 0)  # starts with a fresh force
-        # for v in vehicules:
-        #     if v is not self:
 
     def drawMe(self, screen):
         pygame.draw.circle(screen, self._color, self._coords, Vehicule._radius, 0)
@@ -271,16 +275,16 @@ class SetOfVehicules:
             v._speed = vecAdd(v._speed, v._force)
             v._speed = (min(v._maxspeed, v._speed[0]), min(v._maxspeed, v._speed[1]))
 
+            # Pour chaque véhicule s'il y a un autre véhicule proche autour
+            # on regarde s'il se situe devant ( avec la méthode isAhead() )
+            # si oui on ralenti proportionnelement à la distance à laquelle il se trouve
+            # Si le vehicule devant est juste collé alors on arrête le vehicule 
             for v2 in self._vehicules:
                 dist = approximateDistance(v._coords, v2._coords)
                 length = v._seeInFuture * approximateLength(v._speed)
                 if dist < length and isAhead(v._speed, v._coords, v2._coords, v._seeInFuture):
-                    v._speed = vecScalarMult(v._speed, min(1, dist/length)) #slow down if a vehicule is ahead
+                    v._speed = vecScalarMult(v._speed, min(1, dist/length))
 
-
-            # l = approximateLength(v._speed)
-            # if l > v._maxspeed:
-            #     v._speed = vecScalarMult(v._speed, v._maxspeed / l)
             v._coords = (
                 v._coords[0] + int(v._speed[0]),
                 v._coords[1] + int(v._speed[1]),
@@ -391,10 +395,6 @@ class Track:
                     p,
                     vecAdd(p, vecScalarMult(self._cachedNormals[i], 50)),
                 )
-
-        # if scene is not None:
-        #     for i,p in enumerate(self._circuit):
-        #         scene.drawText(str(int(self._cachedLength[i])), p)
 
 
 class Scene:
